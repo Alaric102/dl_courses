@@ -14,11 +14,14 @@ def l2_regularization(W, reg_strength):
       gradient, np.array same shape as W - gradient of weight by l2 loss
     """
     # TODO: Copy from the previous assignment
-    raise Exception("Not implemented!")
-    return loss, grad
+    a = np.sum(W**2)
+    f = reg_strength * a
+    dfda = reg_strength
+    dfdw = dfda * 2*W
+    return f, dfdw
 
 
-def softmax_with_cross_entropy(preds, target_index):
+def softmax_with_cross_entropy(predictions, target_index):
     """
     Computes softmax and cross-entropy loss for model predictions,
     including the gradient
@@ -34,9 +37,33 @@ def softmax_with_cross_entropy(preds, target_index):
       dprediction, np array same shape as predictions - gradient of predictions by loss value
     """
     # TODO: Copy from the previous assignment
-    raise Exception("Not implemented!")
+    gt_indexes = target_index
+    preds = predictions
+    if type(gt_indexes) == int:
+      gt_indexes = [gt_indexes]
+      preds = preds[None, :]
+    
+    batch_size = preds.shape[0]
+    preds = preds - np.max(preds, axis=1, keepdims=True)
+    a = np.exp(preds)
+    b = np.sum(a, axis=1, keepdims=True)
+    c = a / b
+    d = np.log(c)
+    t = np.zeros_like(a)
+    for row, col in enumerate(gt_indexes):
+      t[row, col] = 1
+    e = t*d
+    f = np.sum(-e)/batch_size
 
-    return loss, d_preds
+    dfde = -batch_size/(batch_size**2)
+    dfdd = dfde * t
+    dfdc = dfdd * 1/c
+    dfdb = np.sum(dfdc * (-a / (b ** 2)), axis=1, keepdims=True)
+    dfda = dfdc * (1/b) + dfdb
+    dfdx = dfda * a
+
+    dfdx = np.reshape(dfdx, predictions.shape)
+    return f, dfdx
 
 
 class Param:
@@ -52,13 +79,16 @@ class Param:
 
 class ReLULayer:
     def __init__(self):
-        pass
+        self.X = None
 
     def forward(self, X):
         # TODO: Implement forward pass
         # Hint: you'll need to save some information about X
         # to use it later in the backward pass
-        raise Exception("Not implemented!")
+        self.X = np.copy(X)
+        result = np.copy(X)
+        result[X<0] = 0
+        return result
 
     def backward(self, d_out):
         """
@@ -74,7 +104,9 @@ class ReLULayer:
         """
         # TODO: Implement backward pass
         # Your final implementation shouldn't have any loops
-        raise Exception("Not implemented!")
+        d_result = np.copy(d_out)
+        d_result[self.X < 0] *= 0
+        d_result[self.X == 0] *= 0.5
         return d_result
 
     def params(self):
@@ -91,7 +123,8 @@ class FullyConnectedLayer:
     def forward(self, X):
         # TODO: Implement forward pass
         # Your final implementation shouldn't have any loops
-        raise Exception("Not implemented!")
+        self.X = Param(X)
+        return (X @ self.W.value) + self.B.value
 
     def backward(self, d_out):
         """
@@ -109,15 +142,19 @@ class FullyConnectedLayer:
         """
         # TODO: Implement backward pass
         # Compute both gradient with respect to input
+        # out = X @ W + B
+        self.X.grad = d_out @ self.W.value.T
+        
         # and gradients with respect to W and B
+        dW = self.X.value.T @ d_out
+        dB = np.sum(d_out, axis=0, keepdims=True)
         # Add gradients of W and B to their `grad` attribute
-
+        self.W.grad = dW
+        self.B.grad = dB
+        self.X.grad = d_out @ self.W.value.T
         # It should be pretty similar to linear classifier from
-        # the previous assignment
-
-        raise Exception("Not implemented!")
-
-        return d_input
+        
+        return self.X.grad
 
     def params(self):
         return {'W': self.W, 'B': self.B}

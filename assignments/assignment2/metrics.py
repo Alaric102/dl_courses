@@ -1,3 +1,5 @@
+import numpy as np
+
 def multiclass_accuracy(prediction, ground_truth):
     """
     Computes metrics for multiclass classification
@@ -11,6 +13,6 @@ def multiclass_accuracy(prediction, ground_truth):
     """
 
     # TODO: Implement computing accuracy
-    raise Exception("Not implemented!")
+    # raise Exception("Not implemented!")
 
-    return 0
+    return np.sum(prediction == ground_truth) / ground_truth.shape[0]
