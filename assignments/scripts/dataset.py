@@ -40,3 +40,34 @@ def load_svhn(folder: str, max_train: int, max_test: int):
     train_X, train_y = load_data_mat(os.path.join(folder, "train_32x32.mat"), max_train)
     test_X, test_y = load_data_mat(os.path.join(folder, "test_32x32.mat"), max_test)
     return train_X, train_y, test_X, test_y
+
+def random_split_train_val(X, y, num_val, seed=42):
+    '''
+    Randomly splits dataset into training and validation
+    
+    Arguments:
+    X - np array with samples
+    y - np array with labels
+    num_val - number of samples to put in validation
+    seed - random seed
+
+    Returns:
+    train_X, np array (num_train, 32, 32, 3) - training images
+    train_y, np array of int (num_train) - training labels
+    val_X, np array (num_val, 32, 32, 3) - validation images
+    val_y, np array of int (num_val) - validation labels
+    '''
+    np.random.seed(seed)
+    
+    indices = np.arange(X.shape[0])
+    np.random.shuffle(indices)
+
+    train_indices = indices[:-num_val]
+    train_X = X[train_indices]
+    train_y = y[train_indices]
+
+    val_indices = indices[-num_val:]
+    val_X = X[val_indices]
+    val_y = y[val_indices]
+
+    return train_X, train_y, val_X, val_y
