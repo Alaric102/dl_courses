@@ -1,8 +1,8 @@
 import numpy as np
 from typing import Dict
 
-from scripts.layers import FullyConnectedLayer, ReLULayer, Param, softmax_with_cross_entropy, l2_regularization
-
+from scripts.layers import ConvolutionalLayer, MaxPoolingLayer, Flattener, FullyConnectedLayer, ReLULayer, Param, softmax_with_cross_entropy, l2_regularization
+from scripts.linear_classifer import softmax
 class TwoLayerNet:
     """ Neural network with two fully connected layers """
 
@@ -85,4 +85,81 @@ class TwoLayerNet:
                   "B1": self.fc_1.params()["B"],
                   "W2": self.fc_2.params()["W"],
                   "B2": self.fc_2.params()["B"]}
+        return result
+
+class ConvNet:
+    """
+    Implements a very simple conv net
+
+    Input -> Conv[3x3] -> Relu -> Maxpool[4x4] ->
+    Conv[3x3] -> Relu -> MaxPool[4x4] ->
+    Flatten -> FC -> Softmax
+    """
+    def __init__(self, input_shape, n_output_classes, conv1_channels, conv2_channels):
+        """
+        Initializes the neural network
+
+        Arguments:
+        input_shape, tuple of 3 ints - image_width, image_height, n_channels
+                                         Will be equal to (32, 32, 3)
+        n_output_classes, int - number of classes to predict
+        conv1_channels, int - number of filters in the 1st conv layer
+        conv2_channels, int - number of filters in the 2nd conv layer
+        """
+        
+        image_width, image_height, n_channels = input_shape
+        conv1_out_channels = 64
+        self.conv2d_1 = ConvolutionalLayer(filter_size=conv1_channels, in_channels=n_channels, out_channels=conv1_out_channels)
+        self.relu_1 = ReLULayer()
+        self.maxpool_1 = MaxPoolingLayer(pool_size=3, stride=2)
+
+        conv2_out_channels = 16
+        self.conv2d_2 = ConvolutionalLayer(filter_size=conv2_channels, in_channels=conv1_out_channels, out_channels=conv2_out_channels)
+        self.relu_2 = ReLULayer()
+        self.maxpool_2 = MaxPoolingLayer(pool_size=3, stride=1)
+
+        self.flattener = Flattener()
+        self.fc_layer = FullyConnectedLayer(n_input=12*12*16, n_output=n_output_classes)
+        
+    def compute_loss_and_gradients(self, X, y):
+        """
+        Computes total loss and updates parameter gradients
+        on a batch of training examples
+
+        Arguments:
+        X, np array (batch_size, height, width, input_features) - input data
+        y, np array of int (batch_size) - classes
+        """
+        # Before running forward and backward pass through the model,
+        # clear parameter gradients aggregated from the previous pass
+
+        for param in self.params().values():
+            param.grad = np.zeros_like(param.value)
+
+        t1 = self.maxpool_1.forward(self.relu_1.forward(self.conv2d_1.forward(X)))
+        t2 = self.maxpool_2.forward(self.relu_2.forward(self.conv2d_2.forward(t1)))
+        t3 = self.flattener.forward(t2)
+        loss, grad = softmax_with_cross_entropy(self.fc_layer.forward(t3), target_index=y)
+
+        dt2 = self.flattener.backward(self.fc_layer.backward(grad))
+        dt1 = self.conv2d_2.backward(self.relu_2.backward(self.maxpool_2.backward(dt2)))
+        self.conv2d_1.backward(self.relu_1.backward(self.maxpool_1.backward(dt1)))
+
+        return loss
+    
+    def predict(self, X):
+        # You can probably copy the code from previous assignment
+        preds = self.maxpool_1.forward(self.relu_1.forward(self.conv2d_1.forward(X)))
+        preds = self.maxpool_2.forward(self.relu_2.forward(self.conv2d_2.forward(preds)))
+        preds = self.fc_layer.forward(self.flattener.forward(preds))
+
+        probs = softmax(preds)
+        return np.argmax(probs, axis=1)
+
+    def params(self):
+        result = {
+            'conv2d_1.W': self.conv2d_1.W, 'conv2d_1.B': self.conv2d_1.B, 
+            'conv2d_2.W': self.conv2d_2.W, 'conv2d_2.B': self.conv2d_2.B,
+            'fc.W': self.fc_layer.W, 'fc.B': self.fc_layer.B
+        }
         return result
